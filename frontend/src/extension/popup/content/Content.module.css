@@ -1,0 +1,7 @@
+/* stylelint-disable-next-line */
+@reference "../Popup.css";
+
+.file-list-container {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-gray-600) transparent;
+}

@@ -1,0 +1,8 @@
+{
+  "singleQuote": true,
+  "trailingComma": "all",
+  "printWidth": 120,
+  "plugins": ["prettier-plugin-tailwindcss", "prettier-plugin-classnames"],
+  "tailwindStylesheet": "./src/extension/popup/Popup.css",
+  "customFunctions": ["twMerge"]
+}

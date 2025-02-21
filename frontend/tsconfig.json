@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "lib": ["DOM", "ES2022"],
+    "types": [
+      "vite-plugin-solid-svg/types",
+      "vite/client",
+      "chrome",
+      "node"
+    ],
+    "noEmit": true,
+    "strict": true,
+    "module": "ES2022",
+    "target": "ES2022",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "jsx": "preserve",
+    "jsxImportSource": "solid-js"
+  }
+}
