@@ -1,0 +1,3 @@
+[build]
+  exclude_dir = ["uploads"]
+  stop_on_error = true
