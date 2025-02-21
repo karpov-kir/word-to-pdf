@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+body {
+  margin: 0;
+}
+
+@custom-variant light (&:where([data-theme="light"] *));
+
+@layer base {
+  [data-theme='light'] {
+    /* --color-gray-900: #E2E8F0; */
+  }
+}

@@ -1,0 +1,65 @@
+tls:
+  certificates:
+    - certFile: "/etc/traefik/certs/word-to-pdf.dev+4.pem"
+      keyFile: "/etc/traefik/certs/word-to-pdf.dev+4-key.pem"
+
+http:
+  middlewares:
+    cors:
+      headers:
+        accessControlAllowOriginList:
+          - "chrome-extension://djmlinomlgiincjehoedbklhiongnkhm"
+        accessControlAllowMethods:
+          - "GET"
+          - "OPTIONS"
+          - "POST"
+        accessControlAllowHeaders:
+          - "Content-Type"
+          - "Authorization"
+        accessControlExposeHeaders:
+          - "Content-Length"
+        accessControlMaxAge: 1728000
+    # rate-limit-convert-requests:
+    #   rateLimit:
+    #     average: 10
+    #     period: 1h
+    #     burst: 10
+    # rate-limit-batch-requests:
+    #   rateLimit:
+    #     average: 10
+    #     period: 1h
+    #     burst: 10
+    # limit-convert-requests-body-size:
+    #   buffering:
+    #     # 10 MB
+    #     maxRequestBodyBytes: 10485760
+  routers:
+    word-to-pdf:
+      rule: "Host(`api.word-to-pdf.dev`)"
+      service: "word-to-pdf"
+      entryPoints: "websecure"
+      tls: {}
+      middlewares:
+        - cors
+    word-to-pdf-create-convert-request:
+      rule: "Host(`api.word-to-pdf.dev`) && Path(`/convert-requests/create`)"
+      service: "word-to-pdf"
+      entryPoints: "websecure"
+      tls: {}
+      middlewares:
+        - cors
+        - rate-limit-convert-requests
+        - limit-convert-requests-body-size
+    word-to-pdf-create-batch-request:
+      rule: "Host(`api.word-to-pdf.dev`) && Path(`/batch-requests/create`)"
+      service: "word-to-pdf"
+      entryPoints: "websecure"
+      tls: {}
+      middlewares:
+        - cors
+        - rate-limit-batch-requests
+  services:
+    word-to-pdf:
+      loadBalancer:
+        servers:
+          - url: "http://host.docker.internal:3030"

@@ -1,0 +1,38 @@
+version: '3'
+
+tasks:
+  install-tools:
+    cmds:
+      - GOBIN={{.TASKFILE_DIR}}/bin go install -v github.com/air-verse/air@v1
+      - GOBIN={{.TASKFILE_DIR}}/bin go install github.com/itchyny/gojq/cmd/gojq@v0
+  start:dev:
+    cmds:
+      - docker compose -f docker/docker-compose.yml up -d --wait
+      - ./bin/air
+      - defer: docker compose -f docker/docker-compose.yml stop
+  build:docker:
+    cmds:
+      - docker build -f ./docker/Dockerfile --platform=linux/amd64 -t word-to-pdf .
+  publish:docker:
+    cmds:
+      - docker tag word-to-pdf dr.kk-forge.com/word-to-pdf && docker push dr.kk-forge.com/word-to-pdf
+  build:docker:docx-to-pdf:
+    cmds:
+      - docker build -f ./docker/docx-to-pdf/Dockerfile --platform=linux/amd64 -t docx-to-pdf ./docker/docx-to-pdf
+  publish:docker:docx-to-pdf:
+    cmds:
+      - docker tag docx-to-pdf dr.kk-forge.com/docx-to-pdf && docker push dr.kk-forge.com/docx-to-pdf
+  send-many-sample-convert-requests:
+    cmds:
+      - |
+        accessToken=$(curl -s -X POST https://api.word-to-pdf.dev/auth/token | ./bin/gojq -r '.accessToken')
+        echo "Using access token: $accessToken"
+        for i in {1..30}; do curl -X POST https://api.word-to-pdf.dev/convert-request/create -H "Authorization: Bearer $accessToken" -F "file=@../samples/sample_1mb.docx"; done
+        for i in {1..30}; do curl -X POST https://api.word-to-pdf.dev/convert-request/create -H "Authorization: Bearer $accessToken" -F "file=@../samples/sample_1mb.doc"; done
+  delete-uploads:
+    cmds:
+      - rm -r ./uploads/*
+  install-dev-certs:
+    cmds:
+      - CAROOT={{.TASKFILE_DIR}}/docker/dev-certs mkcert -install
+

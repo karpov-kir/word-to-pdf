@@ -1,0 +1,15 @@
+.idea
+.vscode
+build
+tsconfig.build.tsbuildinfo
+dist
+node_modules
+coverage
+tmp
+uploads
+bin
+word-to-pdf-*.zip
+fonts-from-windows-machine.zip
+
+.DS_Store
+npm-debug.log*
