@@ -1,0 +1,4 @@
+[build]
+  exclude_dir = ["uploads"]
+  full_bin = "ENV=development ./tmp/main"
+  stop_on_error = true
