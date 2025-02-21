@@ -1,0 +1,13 @@
+.idea
+.vscode
+build
+tsconfig.build.tsbuildinfo
+dist
+node_modules
+coverage
+tmp
+uploads
+bin
+
+.DS_Store
+npm-debug.log*

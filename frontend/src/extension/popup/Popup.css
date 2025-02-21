@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+@custom-variant light (&:where([data-theme="light"] *));
+
+@theme {}
+
+@theme light {}
+
+body {
+  margin: 0;
+}
