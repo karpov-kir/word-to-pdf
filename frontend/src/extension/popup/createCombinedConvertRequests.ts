@@ -1,4 +1,4 @@
-import { ConvertRequest, ConvertRequestBeingCreated } from '../../Storage';
+import { ConvertRequest, ConvertRequestBeingCreated } from '../Storage';
 
 export function createCombinedConvertRequests(
   newConvertRequests: ConvertRequest[],

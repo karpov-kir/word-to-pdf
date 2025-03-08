@@ -1,20 +1,51 @@
 import { config } from '../../Config';
-import { chromeStorage, isLocalBatchRequest } from '../../Storage';
 import { sleep } from '../../utils/sleep';
 import { wordToPdfApiClient } from '../../wordToPdfApiClient/WordToPdfApiClient';
+import { chromeStorage, isLocalBatchRequest } from '../Storage';
 
-export async function pollBatchRequestsInProgress() {
-  await updateBatchRequestsInProgress();
+let isPolling = false;
+
+export async function pollBatchRequestsInProgress(isInitialRequest = true) {
+  if (isInitialRequest) {
+    console.log(`Starting to poll batch requests in progress every ${config.pollBatchRequestsInProgressIntervalMs}ms`);
+  }
+
+  if (isPolling && isInitialRequest) {
+    console.log('Already polling batch requests in progress, skipping');
+    return;
+  }
+
+  isPolling = true;
+
+  const { batchRequestsInProgressCount, error } = await updateBatchRequestsInProgress();
+
+  if (batchRequestsInProgressCount === 0 && !error) {
+    console.log('No batch requests in progress, stopping polling');
+    isPolling = false;
+    return;
+  }
+
   await sleep(config.pollBatchRequestsInProgressIntervalMs);
-  pollBatchRequestsInProgress();
+
+  if (!isPolling) {
+    return;
+  }
+
+  pollBatchRequestsInProgress(false);
 }
 
-async function updateBatchRequestsInProgress() {
+async function updateBatchRequestsInProgress(): Promise<{
+  batchRequestsInProgressCount: number;
+  error: boolean;
+}> {
   try {
     const batchRequestInProgress = await chromeStorage.getBatchRequestInProgress();
 
     if (!batchRequestInProgress) {
-      return;
+      return {
+        batchRequestsInProgressCount: 0,
+        error: false,
+      };
     }
 
     const batchRequestsFromServer = await wordToPdfApiClient.getBatchRequestsByIds([batchRequestInProgress.id]);
@@ -50,7 +81,17 @@ async function updateBatchRequestsInProgress() {
 
       return updatedBatchRequest;
     });
+
+    return {
+      batchRequestsInProgressCount: batchRequestsFromServer.length,
+      error: false,
+    };
   } catch (error) {
     console.error('Failed to fetch batch requests in progress (within polling)', error);
   }
+
+  return {
+    batchRequestsInProgressCount: 0,
+    error: true,
+  };
 }

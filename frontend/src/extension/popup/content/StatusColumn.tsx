@@ -3,7 +3,7 @@ import { createMemo, createSignal, onCleanup, Show } from 'solid-js';
 
 import { Tooltip } from '../../../components/Tooltip';
 import { config } from '../../../Config';
-import { ConvertRequestErrorType } from '../../../Storage';
+import { ConvertRequestErrorType } from '../../Storage';
 import { CombinedConvertRequest } from '../CombinedConvertRequest';
 import { checkFileHasBeenDeleted } from './checkFileHasBeenDeleted';
 import { UploadIndicator } from './UploadIndicator';

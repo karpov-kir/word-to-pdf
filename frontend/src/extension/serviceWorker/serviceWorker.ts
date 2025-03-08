@@ -1,47 +1,37 @@
-import { config } from '../../Config';
-import { Events, EventTypes } from '../../events';
-import { sleep } from '../../utils/sleep';
-import { wordToPdfApiClient } from '../../wordToPdfApiClient/WordToPdfApiClient';
+import { Events, EventTypes } from '../events';
 import { cleanup } from './cleanup';
-import { createOffscreenDocument } from './createOffscreenDocument';
 import { handleBatchRequested } from './handleBatchRequested';
 import { handleWordDocumentSelected } from './handleWordDocumentSelected';
 import { pollBatchRequestsInProgress } from './pollBatchRequestsInProgress';
 import { pollConvertRequestsInProgress } from './pollConvertRequestsInProgress';
 
-// Ensures the service worker starts up after the browser starts up e.g. after system restart.
-chrome.runtime.onStartup.addListener(() => {
-  console.log('Service worker started');
-});
+chrome.runtime.onMessage.addListener((event: Events, _: unknown, sendResponse: (response: unknown) => void) => {
+  console.log('Received event', event);
 
-chrome.runtime.onMessage.addListener((event: Events) => {
   if (event.type === EventTypes.WordDocumentSelected) {
     handleWordDocumentSelected(event);
   } else if (event.type === EventTypes.BatchRequested) {
     handleBatchRequested(event);
-  } else if (event.type === EventTypes.KeepServiceWorkerAlive) {
-    console.log('Received keep service worker alive event');
+  } else if (event.type === EventTypes.WakeServiceWorkerUp) {
+    console.log('Received keep service worker alive event, acknowledging...');
+    sendResponse({ data: `acknowledge-${event.type}-in-service-worker` });
   }
 });
 
-async function initAccessToken() {
-  try {
-    await wordToPdfApiClient.initAccessToken();
-  } catch (error) {
-    console.error('Failed to initialize access token', error);
-    await sleep(5_000);
-    initAccessToken();
+chrome.runtime.onInstalled.addListener((details) => {
+  if (details.reason === chrome.runtime.OnInstalledReason.INSTALL) {
+    chrome.tabs.create({
+      url: 'https://kk-forge.com/products/word-to-pdf/welcome',
+    });
+  } else if (details.reason === chrome.runtime.OnInstalledReason.UPDATE) {
+    // When extension is updated
+  } else if (details.reason === chrome.runtime.OnInstalledReason.CHROME_UPDATE) {
+    // When browser is updated
+  } else if (details.reason === chrome.runtime.OnInstalledReason.SHARED_MODULE_UPDATE) {
+    // When a shared module is updated
   }
-}
+});
 
-initAccessToken();
-
-console.log(`Starting to poll convert requests in progress every ${config.pollConvertRequestsInProgressIntervalMs}ms`);
 pollConvertRequestsInProgress();
-
-console.log(`Starting to poll batch requests in progress every ${config.pollBatchRequestsInProgressIntervalMs}ms`);
 pollBatchRequestsInProgress();
-
-createOffscreenDocument();
-
 cleanup();

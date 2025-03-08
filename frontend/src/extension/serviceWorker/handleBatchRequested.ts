@@ -1,8 +1,9 @@
 import { createId } from '@paralleldrive/cuid2';
 
-import { BatchRequestedEvent } from '../../events';
-import { BatchRequestErrorType, chromeStorage } from '../../Storage';
 import { ServerErrorResponse, ServerErrorType, wordToPdfApiClient } from '../../wordToPdfApiClient/WordToPdfApiClient';
+import { BatchRequestedEvent } from '../events';
+import { BatchRequestErrorType, chromeStorage } from '../Storage';
+import { pollBatchRequestsInProgress } from './pollBatchRequestsInProgress';
 
 export async function handleBatchRequested(_event: BatchRequestedEvent) {
   console.log('Creating batch request');
@@ -45,6 +46,8 @@ export async function handleBatchRequested(_event: BatchRequestedEvent) {
 
     await chromeStorage.setShouldDisplayDownloadAllError(true);
   }
+
+  pollBatchRequestsInProgress();
 }
 
 function getBatchRequestErrorType(error: unknown) {

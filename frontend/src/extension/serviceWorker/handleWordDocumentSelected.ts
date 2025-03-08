@@ -1,15 +1,10 @@
-import { createId } from '@paralleldrive/cuid2';
-
-import {
-  Events,
-  EventTypes,
-  UploadWordDocumentEvent,
-  WordDocumentSelectedEvent,
-  WordDocumentUploadStatusEvent,
-} from '../../events';
-import { chromeStorage, ConvertRequestErrorType } from '../../Storage';
 import { Deferred } from '../../utils/deferred';
 import { ConvertRequestDto } from '../../wordToPdfApiClient/ConvertRequestDto';
+import { Events, EventTypes, WordDocumentSelectedEvent, WordDocumentUploadStatusEvent } from '../events';
+import { chromeMessaging } from '../Messaging';
+import { chromeStorage, ConvertRequestErrorType } from '../Storage';
+import { ensureOffscreenDocument } from './createOffscreenDocument';
+import { pollConvertRequestsInProgress } from './pollConvertRequestsInProgress';
 
 export class UploadError extends Error {
   constructor(
@@ -23,20 +18,14 @@ export class UploadError extends Error {
 export async function handleWordDocumentSelected(event: WordDocumentSelectedEvent) {
   console.log('Creating convert request');
 
-  const convertRequestBeingCreatedId = createId();
-
   try {
-    await chromeStorage.appendConvertRequestBeingCreated({
-      id: convertRequestBeingCreatedId,
-      fileName: event.fileName,
-      fileId: event.fileId,
-    });
+    await ensureOffscreenDocument();
     await chromeStorage.appendConvertRequest({
       id: undefined,
       status: 'queued',
       fileName: event.fileName,
       createdAt: Date.now(),
-      convertRequestBeingCreatedId,
+      convertRequestBeingCreatedId: event.convertRequestBeingCreatedId,
       fileSize: event.fileSize,
     });
 
@@ -46,26 +35,27 @@ export async function handleWordDocumentSelected(event: WordDocumentSelectedEven
       throw new Error('Access token not found');
     }
 
-    await chrome.runtime.sendMessage<UploadWordDocumentEvent>({
-      ...event,
+    await chromeMessaging.sendMessage({
       type: EventTypes.UploadWordDocument,
       accessToken,
-      convertRequestBeingCreatedId,
+      fileId: event.fileId,
+      convertRequestBeingCreatedId: event.convertRequestBeingCreatedId,
+      fileName: event.fileName,
     });
 
-    const createdConvertRequest = await watchWordDocumentUploading(convertRequestBeingCreatedId);
+    const createdConvertRequest = await watchWordDocumentUploading(event.convertRequestBeingCreatedId);
 
-    await chromeStorage.modifyConvertRequestByConvertRequestBeingCreatedId(convertRequestBeingCreatedId, () => ({
+    await chromeStorage.modifyConvertRequestByConvertRequestBeingCreatedId(event.convertRequestBeingCreatedId, () => ({
       ...createdConvertRequest,
       convertRequestBeingCreatedId: undefined,
     }));
 
-    await chromeStorage.removeConvertRequestBeingCreated(convertRequestBeingCreatedId);
+    await chromeStorage.removeConvertRequestBeingCreated(event.convertRequestBeingCreatedId);
   } catch (error) {
     console.error('Failed to create convert request', error);
 
     await chromeStorage
-      .modifyConvertRequestBeingCreatedById(convertRequestBeingCreatedId, (existingConvertRequest) => ({
+      .modifyConvertRequestBeingCreatedById(event.convertRequestBeingCreatedId, (existingConvertRequest) => ({
         ...existingConvertRequest,
         errorType: getConvertRequestErrorType(error),
         errorMessage: `${error}`,
@@ -78,6 +68,8 @@ export async function handleWordDocumentSelected(event: WordDocumentSelectedEven
   await chromeStorage.removeFileForUploading(event.fileId).catch((error) => {
     console.error('Failed to remove file for uploading', error);
   });
+
+  pollConvertRequestsInProgress();
 }
 
 function getConvertRequestErrorType(error: unknown): ConvertRequestErrorType {

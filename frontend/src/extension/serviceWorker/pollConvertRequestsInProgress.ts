@@ -1,20 +1,49 @@
 import { config } from '../../Config';
-import { chromeStorage, isLocalConvertRequest } from '../../Storage';
 import { sleep } from '../../utils/sleep';
 import { wordToPdfApiClient } from '../../wordToPdfApiClient/WordToPdfApiClient';
+import { chromeStorage, isLocalConvertRequest } from '../Storage';
 
-export async function pollConvertRequestsInProgress() {
-  await updateConvertRequestsInProgress();
+let isPolling = false;
+
+export async function pollConvertRequestsInProgress(isInitialRequest = true) {
+  if (isInitialRequest) {
+    console.log(
+      `Starting to poll convert requests in progress every ${config.pollConvertRequestsInProgressIntervalMs}ms`,
+    );
+  }
+
+  if (isPolling && isInitialRequest) {
+    console.log('Already polling batch requests in progress, skipping');
+    return;
+  }
+
+  isPolling = true;
+
+  const { convertRequestsInProgressCount, error } = await updateConvertRequestsInProgress();
+
+  if (convertRequestsInProgressCount === 0 && !error) {
+    isPolling = false;
+    console.log('No convert requests in progress, stopping polling');
+    return;
+  }
+
   await sleep(config.pollConvertRequestsInProgressIntervalMs);
-  pollConvertRequestsInProgress();
+
+  if (!isPolling) {
+    return;
+  }
+  pollConvertRequestsInProgress(false);
 }
 
-async function updateConvertRequestsInProgress() {
+async function updateConvertRequestsInProgress(): Promise<{ convertRequestsInProgressCount: number; error: boolean }> {
   try {
     const convertRequestsInProgress = await chromeStorage.getConvertRequestsInProgress();
 
-    if (convertRequestsInProgress.length === 0) {
-      return;
+    if (!convertRequestsInProgress.length) {
+      return {
+        convertRequestsInProgressCount: 0,
+        error: false,
+      };
     }
 
     const convertRequestsFromServer = await wordToPdfApiClient.getConvertRequestsByIds(
@@ -45,7 +74,17 @@ async function updateConvertRequestsInProgress() {
         };
       }),
     );
+
+    return {
+      convertRequestsInProgressCount: convertRequestsFromServer.length,
+      error: false,
+    };
   } catch (error) {
     console.error('Failed to fetch convert requests in progress (within polling)', error);
   }
+
+  return {
+    convertRequestsInProgressCount: 0,
+    error: true,
+  };
 }

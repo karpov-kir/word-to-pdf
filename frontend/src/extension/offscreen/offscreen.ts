@@ -1,34 +1,16 @@
 import throttle from 'lodash.throttle';
-import pRetry from 'p-retry';
 
 import { config } from '../../Config';
-import {
-  Events,
-  EventTypes,
-  KeepServiceWorkerAliveEvent,
-  UploadWordDocumentEvent,
-  WordDocumentUploadStatusEvent,
-} from '../../events';
-import { chromeStorage } from '../../Storage';
 import { ConvertRequestDto } from '../../wordToPdfApiClient/ConvertRequestDto';
+import { Events, EventTypes, UploadWordDocumentEvent } from '../events';
+import { chromeMessaging } from '../Messaging';
 import { UploadError } from '../serviceWorker/handleWordDocumentSelected';
+import { chromeStorage } from '../Storage';
 
 const maxParallelUploads = 5;
 const uploadQueue: UploadWordDocumentEvent[] = [];
 let activeUploads = 0;
 const activeXhrRequests: Map<string, XMLHttpRequest> = new Map();
-
-setInterval(async () => {
-  try {
-    console.log('Sending keep service worker event');
-
-    await chrome.runtime.sendMessage<KeepServiceWorkerAliveEvent>({
-      type: EventTypes.KeepServiceWorkerAlive,
-    });
-  } catch (error) {
-    console.error('Failed to keep service worker alive', error);
-  }
-}, 20_000);
 
 chrome.runtime.onMessage.addListener((event: Events) => {
   if (event.type === EventTypes.UploadWordDocument) {
@@ -73,69 +55,52 @@ async function processQueue() {
   }
 }
 
-async function handleUploadWordDocument({
-  accessToken,
-  fileId,
-  convertRequestBeingCreatedId,
-  fileName,
-}: UploadWordDocumentEvent) {
+async function handleUploadWordDocument(event: UploadWordDocumentEvent) {
   try {
     console.log('Creating convert request');
 
-    const handleLoadProgress = throttle((progress: number) => {
-      chrome.runtime
-        .sendMessage<WordDocumentUploadStatusEvent>({
-          type: EventTypes.WordDocumentUploadStatus,
-          uploadProgress: progress,
-          isCompleted: false,
-          convertRequestBeingCreatedId,
-        })
-        .catch((error) => {
-          console.error(`Failed to send progress ${EventTypes.WordDocumentUploadStatus} event`, error);
-        });
+    const handleLoadProgress = throttle(async (progress: number) => {
+      await chromeMessaging.sendMessage({
+        type: EventTypes.WordDocumentUploadStatus,
+        uploadProgress: progress,
+        isCompleted: false,
+        convertRequestBeingCreatedId: event.convertRequestBeingCreatedId,
+      });
     }, 200);
 
-    const file = await chromeStorage.getFileForUploading(fileId);
+    const file = await chromeStorage.getFileForUploading(event.fileId);
 
     if (!file) {
-      throw new Error(`File with id ${fileId} not found`);
+      throw new Error(`File with id ${event.fileId} not found`);
     }
 
-    const { status, convertRequestDto } = await uploadFile(file, accessToken, fileName, handleLoadProgress, fileId);
-
-    await pRetry(
-      () =>
-        chrome.runtime.sendMessage<WordDocumentUploadStatusEvent>({
-          type: EventTypes.WordDocumentUploadStatus,
-          uploadProgress: 100,
-          isCompleted: true,
-          convertRequestDto,
-          status,
-          error: undefined,
-          convertRequestBeingCreatedId,
-        }),
-      { retries: 5, minTimeout: 20, maxTimeout: 100 },
+    const { status, convertRequestDto } = await uploadFile(
+      file,
+      event.accessToken,
+      event.fileName,
+      handleLoadProgress,
+      event.fileId,
     );
+
+    await chromeMessaging.sendMessage({
+      type: EventTypes.WordDocumentUploadStatus,
+      uploadProgress: 100,
+      isCompleted: true,
+      convertRequestDto,
+      status,
+      error: undefined,
+      convertRequestBeingCreatedId: event.convertRequestBeingCreatedId,
+    });
   } catch (error) {
     console.error('Failed to create convert request', error);
-    await pRetry(
-      () =>
-        chrome.runtime.sendMessage<WordDocumentUploadStatusEvent>({
-          type: EventTypes.WordDocumentUploadStatus,
-          uploadProgress: 100,
-          isCompleted: true,
-          convertRequestDto: undefined,
-          status: error instanceof UploadError ? error.status : undefined,
-          error: `${error}`,
-          convertRequestBeingCreatedId,
-        }),
-      {
-        retries: 5,
-        minTimeout: 20,
-        maxTimeout: 100,
-      },
-    ).catch((error) => {
-      console.error(`Failed to send error ${EventTypes.WordDocumentUploadStatus} event`, error);
+    await chromeMessaging.sendMessage({
+      type: EventTypes.WordDocumentUploadStatus,
+      uploadProgress: 100,
+      isCompleted: true,
+      convertRequestDto: undefined,
+      status: error instanceof UploadError ? error.status : undefined,
+      error: `${error}`,
+      convertRequestBeingCreatedId: event.convertRequestBeingCreatedId,
     });
   }
 }

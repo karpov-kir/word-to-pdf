@@ -7,11 +7,11 @@ import { Toaster } from 'solid-toast';
 
 import { Switch } from '../../components/Switch';
 import { config } from '../../Config';
-import { EventTypes, KeepServiceWorkerAliveEvent } from '../../events';
 import DownloadIcon from '../../icons/download.svg?component-solid';
 import WordToPdfIcon from '../../icons/word-to-pdf.svg?component-solid';
-import { chromeStorage } from '../../Storage';
 import { defaultDuration, toast } from '../../utils/toast';
+import { popupChromeMessaging } from '../Messaging';
+import { chromeStorage } from '../Storage';
 import { CombinedBatchRequest, CombinedConvertRequest } from './CombinedConvertRequest';
 import { Content } from './content/Content';
 import { ContentActions } from './content/ContentActions';
@@ -103,14 +103,9 @@ function Popup() {
     });
     /* #endregion */
 
-    console.log('Sending keep service worker event');
-    await chrome.runtime
-      .sendMessage<KeepServiceWorkerAliveEvent>({
-        type: EventTypes.KeepServiceWorkerAlive,
-      })
-      .catch((error) => {
-        console.error('Failed to send keep service worker alive event', error);
-      });
+    if ((await chromeStorage.getConvertRequestsInProgress()).length) {
+      await popupChromeMessaging.ensureServiceWorkerAlive();
+    }
   });
 
   const handleDrop = (event: DragEvent) => {

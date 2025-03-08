@@ -1,7 +1,7 @@
 import { createId } from '@paralleldrive/cuid2';
 
-import { BatchRequestDto } from './wordToPdfApiClient/BatchRequestDto';
-import { ConvertRequestDto } from './wordToPdfApiClient/ConvertRequestDto';
+import { BatchRequestDto } from '../wordToPdfApiClient/BatchRequestDto';
+import { ConvertRequestDto } from '../wordToPdfApiClient/ConvertRequestDto';
 
 export enum ConvertRequestErrorType {
   FileTooLarge = 'fileTooLarge',
@@ -61,73 +61,6 @@ export const isLocalBatchRequest = (batchRequest: BatchRequest): batchRequest is
   return !batchRequest.id && Boolean(batchRequest.batchRequestBeingCreatedId);
 };
 
-export interface Storage {
-  getAccessToken(): Promise<string | undefined>;
-  setAccessToken(accessToken: string): Promise<void>;
-
-  getConvertRequests(): Promise<ConvertRequest[]>;
-  getConvertRequestsInProgress(): Promise<RemoteConvertRequest[]>;
-  appendConvertRequest(convertRequest: LocalConvertRequest): Promise<void>;
-  modifyConvertRequests(modify: (convertRequests: ConvertRequest[]) => ConvertRequest[]): Promise<void>;
-  modifyConvertRequestByConvertRequestBeingCreatedId(
-    convertRequestBeingCreatedId: string,
-    modify: (existingConvertRequest: ConvertRequest) => ConvertRequest,
-  ): Promise<void>;
-  removeConvertRequest(
-    ids:
-      | {
-          convertRequestId: string;
-          convertRequestBeingCreatedId: undefined;
-        }
-      | {
-          convertRequestId: undefined;
-          convertRequestBeingCreatedId: string;
-        },
-  ): Promise<void>;
-  removeAllConvertRequests(): Promise<void>;
-  removeConvertRequestByBeingCreatedId(convertRequestBeingCreatedId: string): Promise<void>;
-  onConvertRequestsChanged(callback: (existingConvertRequests: ConvertRequest[]) => void): void;
-
-  getConvertRequestsBeingCreated(): Promise<ConvertRequestBeingCreated[]>;
-  appendConvertRequestBeingCreated(data: Pick<ConvertRequestBeingCreated, 'id' | 'fileName' | 'fileId'>): Promise<void>;
-  modifyConvertRequestBeingCreatedById(
-    id: string,
-    modify: (existingConvertRequestBeingCreated: ConvertRequestBeingCreated) => ConvertRequestBeingCreated,
-  ): Promise<void>;
-  removeConvertRequestBeingCreated(id: string): Promise<void>;
-  onConvertRequestBeingCreatedChanged(
-    callback: (existingConvertRequestsBeingCreated: ConvertRequestBeingCreated[]) => void,
-  ): void;
-
-  getBatchRequest(): Promise<BatchRequest | undefined>;
-  getBatchRequestInProgress(): Promise<RemoteBatchRequest | undefined>;
-  createBatchRequest(batchRequest: LocalBatchRequest): Promise<void>;
-  modifyBatchRequest(modify: (batchRequest: BatchRequest) => BatchRequest): Promise<void>;
-  removeBatchRequest(): Promise<void>;
-  onBatchRequestChanged(callback: (batchRequest?: BatchRequest) => void): void;
-
-  getBatchRequestBeingCreated(): Promise<BatchRequestBeingCreated | undefined>;
-  createBatchRequestBeingCreated(id: string): Promise<void>;
-  modifyBatchRequestBeingCreated(
-    modify: (batchRequestBeingCreated: BatchRequestBeingCreated) => BatchRequestBeingCreated,
-  ): Promise<void>;
-  removeBatchRequestBeingCreated(): Promise<void>;
-  onBatchRequestBeingCreatedChanged(callback: (batchRequestBeingCreated?: BatchRequestBeingCreated) => void): void;
-
-  shouldDisplayDownloadAllError(): Promise<boolean>;
-  setShouldDisplayDownloadAllError(shouldDisplayDownloadAllError: boolean): Promise<void>;
-  onShouldDisplayDownloadAllErrorChanged(callback: (shouldDisplayDownloadAllError: boolean) => void): void;
-
-  isDarkModeEnabled(): boolean;
-  setIsDarkModeEnabled(darkModeEnabled: boolean): void;
-
-  saveFileForUploading(file: File): Promise<string>;
-  getFileForUploading(fileId: string): Promise<File | undefined>;
-  removeFileForUploading(fileId: string): Promise<void>;
-  getIdsOfFilesForUploading(): Promise<string[]>;
-  removeAllFilesForUploading(): Promise<void>;
-}
-
 interface ChromeStorageData {
   accessToken?: string;
   convertRequests?: ConvertRequest[];
@@ -138,7 +71,7 @@ interface ChromeStorageData {
   shouldDisplayDownloadAllError?: boolean;
 }
 
-export class ChromeStorage implements Storage {
+export class ChromeStorage {
   private storageAccessQueue: Promise<unknown> = Promise.resolve();
 
   private async runViaQueue<T>(action: () => Promise<T>): Promise<T> {
@@ -667,4 +600,4 @@ export class ChromeStorage implements Storage {
   /* #endregion */
 }
 
-export const chromeStorage: Storage = new ChromeStorage();
+export const chromeStorage = new ChromeStorage();

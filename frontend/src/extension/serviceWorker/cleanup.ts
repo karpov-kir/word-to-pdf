@@ -1,4 +1,4 @@
-import { chromeStorage, isLocalConvertRequest } from '../../Storage';
+import { chromeStorage, isLocalConvertRequest } from '../Storage';
 
 export async function cleanup() {
   try {

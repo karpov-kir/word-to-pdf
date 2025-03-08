@@ -1,10 +1,10 @@
-import { ConvertRequestDto } from './wordToPdfApiClient/ConvertRequestDto';
+import { ConvertRequestDto } from '../wordToPdfApiClient/ConvertRequestDto';
 
 export enum EventTypes {
   WordDocumentSelected = 'word-document-selected',
   WordDocumentConverted = 'word-document-converted',
   BatchRequested = 'batch-requested',
-  KeepServiceWorkerAlive = 'keep-service-worker-alive',
+  WakeServiceWorkerUp = 'wake-service-worker-up',
   UploadWordDocument = 'upload-word-document',
   WordDocumentUploadStatus = 'word-document-upload-status',
   CancelUploadWordDocument = 'cancel-upload-word-document',
@@ -12,20 +12,18 @@ export enum EventTypes {
 
 export type WordDocumentSelectedEvent = {
   type: EventTypes.WordDocumentSelected;
+  convertRequestBeingCreatedId: string;
   fileId: string;
-  fileType: string;
   fileName: string;
   fileSize: number;
 };
 
 export type UploadWordDocumentEvent = {
   type: EventTypes.UploadWordDocument;
-  fileId: string;
-  fileType: string;
-  fileName: string;
-  fileSize: number;
   accessToken: string;
   convertRequestBeingCreatedId: string;
+  fileId: string;
+  fileName: string;
 };
 
 export type WordDocumentUploadStatusEvent = {
@@ -42,8 +40,8 @@ export type BatchRequestedEvent = {
   type: EventTypes.BatchRequested;
 };
 
-export type KeepServiceWorkerAliveEvent = {
-  type: EventTypes.KeepServiceWorkerAlive;
+export type EnsureServiceWorkerAliveEvent = {
+  type: EventTypes.WakeServiceWorkerUp;
 };
 
 export type CancelUploadWordDocumentEvent = {
@@ -54,7 +52,7 @@ export type CancelUploadWordDocumentEvent = {
 export type Events =
   | WordDocumentSelectedEvent
   | BatchRequestedEvent
-  | KeepServiceWorkerAliveEvent
+  | EnsureServiceWorkerAliveEvent
   | UploadWordDocumentEvent
   | WordDocumentUploadStatusEvent
   | CancelUploadWordDocumentEvent;

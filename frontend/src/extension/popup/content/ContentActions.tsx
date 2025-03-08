@@ -5,10 +5,11 @@ import { Button } from '../../../components/Button';
 import { IconButton } from '../../../components/IconButton';
 import { Tooltip } from '../../../components/Tooltip';
 import { config } from '../../../Config';
-import { BatchRequestedEvent, CancelUploadWordDocumentEvent, EventTypes } from '../../../events';
 import PlusIcon from '../../../icons/plus.svg?component-solid';
-import { BatchRequestErrorType, chromeStorage } from '../../../Storage';
 import { toast } from '../../../utils/toast';
+import { CancelUploadWordDocumentEvent, EventTypes } from '../../events';
+import { popupChromeMessaging } from '../../Messaging';
+import { BatchRequestErrorType, chromeStorage } from '../../Storage';
 import { CombinedBatchRequest, CombinedConvertRequest } from '../CombinedConvertRequest';
 import { scheduleFileForUploading } from '../scheduleFileForUploading';
 import { checkFileHasBeenDeleted } from './checkFileHasBeenDeleted';
@@ -136,7 +137,7 @@ export function ContentActions(props: {
     }
   };
 
-  const handleDownloadAll = () => {
+  const handleDownloadAll = async () => {
     console.log('Downloading all convert requests');
 
     toast({
@@ -145,15 +146,11 @@ export function ContentActions(props: {
       duration: 10000,
     });
 
-    chrome.runtime
-      .sendMessage<BatchRequestedEvent>({
-        type: EventTypes.BatchRequested,
-      })
-      .catch((error) => {
-        console.error(`Failed to send ${EventTypes.WordDocumentSelected} event`, error);
-      });
+    await popupChromeMessaging.sendMessage({
+      type: EventTypes.BatchRequested,
+    });
 
-    chromeStorage.setShouldDisplayDownloadAllError(false).catch((error) => {
+    await chromeStorage.setShouldDisplayDownloadAllError(false).catch((error) => {
       console.error('Failed to set should display download all error', error);
     });
   };

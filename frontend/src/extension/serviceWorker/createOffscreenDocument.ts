@@ -12,3 +12,19 @@ export async function createOffscreenDocument() {
     justification: 'Upload files to convert them to PDF exposing progress and keeps the service worker alive',
   });
 }
+
+let offscreenDocumentPromise: Promise<void> | undefined;
+
+export async function ensureOffscreenDocument() {
+  if (offscreenDocumentPromise) {
+    return offscreenDocumentPromise;
+  }
+
+  offscreenDocumentPromise = createOffscreenDocument();
+
+  try {
+    await offscreenDocumentPromise;
+  } finally {
+    offscreenDocumentPromise = undefined;
+  }
+}

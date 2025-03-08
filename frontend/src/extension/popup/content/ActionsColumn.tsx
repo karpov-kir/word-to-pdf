@@ -3,10 +3,11 @@ import { twMerge } from 'tailwind-merge';
 
 import { Tooltip } from '../../../components/Tooltip';
 import { config } from '../../../Config';
-import { CancelUploadWordDocumentEvent, EventTypes } from '../../../events';
 import DownloadIcon from '../../../icons/download.svg?component-solid';
 import RemoveIcon from '../../../icons/remove.svg?component-solid';
-import { chromeStorage, isLocalConvertRequest } from '../../../Storage';
+import { EventTypes } from '../../events';
+import { popupChromeMessaging } from '../../Messaging';
+import { chromeStorage, isLocalConvertRequest } from '../../Storage';
 import { CombinedConvertRequest } from '../CombinedConvertRequest';
 import { checkFileHasBeenDeleted } from './checkFileHasBeenDeleted';
 
@@ -19,9 +20,9 @@ export function ActionsColumn(props: { combinedConvertRequest: CombinedConvertRe
   const hasFileBeenDeleted = createMemo(() => checkFileHasBeenDeleted(props.combinedConvertRequest, currentTime()));
   const isDownloadPossible = createMemo(() => hasFileBeenConverted() && !hasFileBeenDeleted());
 
-  const handleRemove = (combinedConvertRequest: CombinedConvertRequest) => {
+  const handleRemove = async (combinedConvertRequest: CombinedConvertRequest) => {
     console.log('Removing convert request', combinedConvertRequest);
-    chromeStorage
+    await chromeStorage
       .removeConvertRequest(
         isLocalConvertRequest(combinedConvertRequest)
           ? {
@@ -38,14 +39,10 @@ export function ActionsColumn(props: { combinedConvertRequest: CombinedConvertRe
       });
 
     if (combinedConvertRequest.convertRequestBeingCreated) {
-      chrome.runtime
-        .sendMessage<CancelUploadWordDocumentEvent>({
-          type: EventTypes.CancelUploadWordDocument,
-          fileId: combinedConvertRequest.convertRequestBeingCreated.fileId,
-        })
-        .catch((error) => {
-          console.error('Failed to send cancel upload document event', error);
-        });
+      await popupChromeMessaging.sendMessage({
+        type: EventTypes.CancelUploadWordDocument,
+        fileId: combinedConvertRequest.convertRequestBeingCreated.fileId,
+      });
     }
   };
 

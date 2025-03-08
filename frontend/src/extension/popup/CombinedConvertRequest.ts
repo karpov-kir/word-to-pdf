@@ -1,4 +1,4 @@
-import { BatchRequest, BatchRequestBeingCreated, ConvertRequest, ConvertRequestBeingCreated } from '../../Storage';
+import { BatchRequest, BatchRequestBeingCreated, ConvertRequest, ConvertRequestBeingCreated } from '../Storage';
 
 export type CombinedConvertRequest = ConvertRequest & { convertRequestBeingCreated?: ConvertRequestBeingCreated };
 

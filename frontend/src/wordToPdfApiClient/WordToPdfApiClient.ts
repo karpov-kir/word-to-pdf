@@ -1,7 +1,5 @@
-import { createId } from '@paralleldrive/cuid2';
-
 import { config } from '../Config';
-import { chromeStorage, Storage } from '../Storage';
+import { chromeStorage } from '../extension/Storage';
 import { BatchRequestDto } from './BatchRequestDto';
 import { ConvertRequestDto } from './ConvertRequestDto';
 
@@ -59,7 +57,7 @@ function isPlainObject(value: unknown) {
 class HttpClient {
   constructor(
     private readonly baseUrl: string,
-    private readonly storage: Storage = chromeStorage,
+    private readonly storage = chromeStorage,
   ) {}
 
   private constructUrl(path: string, { query }: HttClientOptions): URL {
@@ -189,31 +187,22 @@ class HttpClient {
   }
 }
 
-const convertBase64ToBlob = async (base64: string) => {
-  try {
-    const response = await fetch(base64);
-    const blob = await response.blob();
-    return blob;
-  } catch (_error) {
-    throw new Error('Failed to convert base64 to blob');
-  }
-};
-
 export class WordToPdfApiClient {
+  private ensureAccessTokenPromise?: Promise<void>;
+
   constructor(
     private readonly httpClient = new HttpClient(config.wordToPdfApiBaseUrl),
-    private readonly storage: Storage = chromeStorage,
+    private readonly storage = chromeStorage,
   ) {}
 
-  async initAccessToken() {
-    console.log('Initializing access token');
-
+  private async initAccessToken() {
     const existingAccessToken = await this.storage.getAccessToken();
 
     if (existingAccessToken) {
-      console.log('Access token already exists', existingAccessToken);
       return;
     }
+
+    console.log('Initializing access token');
 
     const response = await this.httpClient.post<{ accessToken: string }>('/auth/token', undefined);
 
@@ -221,72 +210,23 @@ export class WordToPdfApiClient {
     await this.storage.setAccessToken(response.accessToken);
   }
 
-  async createConvertRequest(wordDocumentBase64: string, fileName: string, onProgress: (progress: number) => void) {
-    console.log('Creating Word document to PDF convert request');
+  private async ensureAccessToken() {
+    if (this.ensureAccessTokenPromise) {
+      return this.ensureAccessTokenPromise;
+    }
 
-    // const formData = new FormData();
-    const fileBlob = await convertBase64ToBlob(wordDocumentBase64);
-    // formData.append('file', fileBlob, fileName);
+    this.ensureAccessTokenPromise = this.initAccessToken();
 
-    const boundary = `----WebKitFormBoundary${createId()}`;
-    let uploadedSize = 0;
-
-    // Prepare multipart/form-data headers
-    const headers = {
-      'Content-Type': `multipart/form-data; boundary=${boundary}`,
-      'Content-Length': `${fileBlob.size}`,
-    };
-
-    // Based on https://stackoverflow.com/a/69400632 + ChatGPT
-    const fileStream = new ReadableStream({
-      async start(controller) {
-        const encoder = new TextEncoder();
-
-        const preamble =
-          `--${boundary}\r\n` +
-          `Content-Disposition: form-data; name="file"; filename="${fileName}"\r\n` +
-          `Content-Type: ${fileBlob.type}\r\n\r\n`;
-        controller.enqueue(encoder.encode(preamble));
-
-        const reader = fileBlob.stream().getReader();
-
-        read();
-
-        function read() {
-          reader
-            .read()
-            .then(({ done, value }) => {
-              if (done) {
-                controller.enqueue(encoder.encode(`\r\n--${boundary}--\r\n`));
-                controller.close();
-                return;
-              }
-
-              uploadedSize += value.length;
-              onProgress(Math.round((uploadedSize / fileBlob.size) * 100));
-
-              controller.enqueue(value);
-              read();
-            })
-            .catch((error) => {
-              controller.error(error);
-            });
-        }
-      },
-    });
-
-    const response = await this.httpClient.post<ConvertRequestDto>('/convert-requests/create', fileStream, {
-      addAuthHeader: true,
-      headers,
-      duplex: 'half',
-    });
-
-    console.log('Created Word document to PDF convert request', response);
-
-    return response;
+    try {
+      await this.ensureAccessTokenPromise;
+    } finally {
+      this.ensureAccessTokenPromise = undefined;
+    }
   }
 
   async getConvertRequestsByIds(ids: string[]): Promise<ConvertRequestDto[]> {
+    await this.ensureAccessToken();
+
     console.log('Getting convert requests by IDs', ids);
 
     const response = await this.httpClient.post<ConvertRequestDto[]>(
@@ -305,6 +245,8 @@ export class WordToPdfApiClient {
   }
 
   async createBatchRequest(convertRequestIds: string[]) {
+    await this.ensureAccessToken();
+
     console.log('Creating batch request');
 
     const response = await this.httpClient.post<BatchRequestDto>(
@@ -323,6 +265,8 @@ export class WordToPdfApiClient {
   }
 
   async getBatchRequestsByIds(ids: string[]) {
+    await this.ensureAccessToken();
+
     console.log('Getting batch requests by IDs', ids);
 
     const response = await this.httpClient.post<BatchRequestDto[]>(
